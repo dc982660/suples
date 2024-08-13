@@ -1,0 +1,106 @@
+import psutil
+import time
+import paho.mqtt.client as mqtt
+
+def get_memory_usage():
+    """
+    Obtiene el uso de la memoria.
+    """
+    memory = psutil.virtual_memory()
+    return memory.used
+
+def get_network_usage():
+    """
+    Obtiene el uso de la red.
+    """
+    return psutil.net_io_counters()
+
+def to_GB(bytes):
+    """
+    Convierte bytes a GB con dos decimales.
+    """
+    return round(bytes / 1073741824, 2)
+
+def to_kbps(bytes, seconds):
+    """
+    Convierte bytes a kilobits por segundo.
+    """
+    if seconds > 0:
+        return round((bytes * 8) / (seconds * 1000), 2)
+    return 0  # Retorna 0 si el tiempo es 0 o negativo
+
+# Configuración MQTT
+mqtt_broker = "localhost"  # Cambia esto por tu broker MQTT
+mqtt_port = 1883
+mqtt_topic_memoria = "monitoreo/memoria"
+mqtt_topic_red = "monitoreo/red"
+mqtt_topic_activador = "boton/activador"
+
+# Variable global para controlar la ejecución
+running = False
+
+# Callback para cuando se recibe un mensaje
+def on_message(client, userdata, message):
+    global running
+    if message.topic == mqtt_topic_activador:
+        if message.payload.decode() == "true":
+            running = True
+            print("Monitoreo activado")
+        elif message.payload.decode() == "false":
+            running = False
+            print("Monitoreo desactivado")
+
+# Crear cliente MQTT
+client = mqtt.Client()
+client.on_message = on_message
+
+# Conectar al broker MQTT
+client.connect(mqtt_broker, mqtt_port, 60)
+
+# Suscribirse al topic del activador
+client.subscribe(mqtt_topic_activador)
+
+# Iniciar el loop de recepción de mensajes en un hilo separado
+client.loop_start()
+
+# Inicializar variables para el cálculo de la velocidad de red
+last_network_usage = get_network_usage()
+last_time = time.time()
+
+try:
+    while True:
+        if running:
+            current_time = time.time()
+            time_delta = max(current_time - last_time, 0.001)  # Asegura un mínimo de 1 ms
+
+            # Obtener el uso de la memoria y la red
+            memory_usage = get_memory_usage()
+            current_network_usage = get_network_usage()
+
+            # Calcular la velocidad de la red
+            bytes_sent = current_network_usage.bytes_sent - last_network_usage.bytes_sent
+            bytes_recv = current_network_usage.bytes_recv - last_network_usage.bytes_recv
+            total_bytes = bytes_sent + bytes_recv
+            network_speed = to_kbps(total_bytes, time_delta)
+
+            # Convertir bytes a GB para memoria
+            memory_usage_gb = to_GB(memory_usage)
+
+            # Enviar datos por MQTT
+            client.publish(mqtt_topic_memoria, str(memory_usage_gb))
+            client.publish(mqtt_topic_red, str(network_speed))
+            print(f"Datos enviados:\nMemoria: {memory_usage_gb} GB\nRed: {network_speed} kbps")
+
+            # Actualizar variables para la próxima iteración
+            last_network_usage = current_network_usage
+            last_time = current_time
+
+        # Esperar 3 segundos antes de la próxima lectura
+        time.sleep(3)
+
+except KeyboardInterrupt:
+    print("Programa terminado")
+    client.loop_stop()
+    client.disconnect()
+
+  
