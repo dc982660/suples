@@ -1,0 +1,81 @@
+// Obtener el estado actual del relé
+var valor = msg.payload;
+
+// Verificar si el estado es "encendido" y si es diferente al último estado registrado
+if (valor > 11) {
+  // Obtener el contador actual del contexto global
+  var contador = global.get('Memo') || 0;
+  // Incrementar el contador
+  contador++;
+  // Guardar el nuevo valor del contador en el contexto global
+  global.set('Memo', contador);
+
+  // Obtener la fecha y hora actual en UTC
+  var fechaHora = new Date();
+
+  // Convertir a la hora de Ecuador (UTC-5)
+  fechaHora.setHours(fechaHora.getHours() - 5);
+
+  // Formatear la hora y el día
+  var horaActual = fechaHora.toISOString().split('T')[1].split('.')[0]; // Formato HH:MM:SS
+  var diaActual = fechaHora.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+
+  // Crear un objeto con la detección, la hora y el día de encendido
+  var datoFirebase = {
+    Valor: valor,
+    Hora: horaActual,
+    Dia: diaActual
+  };
+
+  // Configurar la clave del contador
+  var key = 'Memoria' + contador;
+
+  // Configurar el mensaje para el nodo de Firebase
+  msg.payload = {};
+  msg.payload[key] = datoFirebase;
+  return msg;
+} else {
+  return null;
+}
+
+# Flujo monitoreo de red
+
+// Obtener el estado actual del relé
+var valor = msg.payload;
+
+// Verificar si el estado es "encendido" y si es diferente al último estado registrado
+if (valor > 2000) {
+  // Obtener el contador actual del contexto global
+  var contador = global.get('Net') || 0;
+  // Incrementar el contador
+  contador++;
+  // Guardar el nuevo valor del contador en el contexto global
+  global.set('Net', contador);
+
+  // Obtener la fecha y hora actual en UTC
+  var fechaHora = new Date();
+
+  // Convertir a la hora de Ecuador (UTC-5)
+  fechaHora.setHours(fechaHora.getHours() - 5);
+
+  // Formatear la hora y el día
+  var horaActual = fechaHora.toISOString().split('T')[1].split('.')[0]; // Formato HH:MM:SS
+  var diaActual = fechaHora.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+
+  // Crear un objeto con la detección, la hora y el día de encendido
+  var datoFirebase = {
+    Valor: valor,
+    Hora: horaActual,
+    Dia: diaActual
+  };
+
+  // Configurar la clave del contador
+  var key = 'Red' + contador;
+
+  // Configurar el mensaje para el nodo de Firebase
+  msg.payload = {};
+  msg.payload[key] = datoFirebase;
+  return msg;
+} else {
+  return null;
+}
